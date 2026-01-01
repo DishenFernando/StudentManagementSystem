@@ -37,44 +37,20 @@ public class StudentController {
     private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
 
-    /**
-     * Create a new student with optional image upload (ADMIN only)
-     * POST /api/students
-     */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<StudentResponse> createStudent(
-            @RequestPart("student") String studentJson,
-            @RequestPart(value = "image", required = false) MultipartFile image,
+            @RequestBody @Valid CreateStudentRequest request,
             @RequestHeader(value = "X-User-Role", required = false) String role) {
 
         validateAdminAccess(role);
 
-        try {
-            // Parse JSON to CreateStudentRequest
-            CreateStudentRequest request = objectMapper.readValue(studentJson, CreateStudentRequest.class);
+        Students student = StudentMapper.toEntity(request);
+        Students createdStudent = studentService.createStudent(student);
 
-            // Validate request manually (since @Valid doesn't work with @RequestPart String)
-            // You might want to add manual validation here or use a validator
-
-            Students student = StudentMapper.toEntity(request);
-
-            // Handle image upload if provided
-            if (image != null && !image.isEmpty()) {
-                String filename = fileStorageService.storeFile(image, request.getStudentId());
-                student.setProfileImageUrl(filename);
-            }
-
-            Students createdStudent = studentService.createStudent(student);
-            StudentResponse response = StudentMapper.toResponse(createdStudent);
-            return new ResponseEntity<>(response, HttpStatus.CREATED);
-
-        } catch (Exception e) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Failed to create student: " + e.getMessage()
-            );
-        }
+        StudentResponse response = StudentMapper.toResponse(createdStudent);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
+
 
     /**
      * Get all students (ADMIN only)
